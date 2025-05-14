@@ -11,6 +11,18 @@ public class MathProblem {
     private final String operator;
     private final int correctAnswer;
 
+    public int getNum1() {
+        return num1;
+    }
+
+    public int getNum2() {
+        return num2;
+    }
+
+    public String getOperator() {
+        return operator;
+    }
+
     public MathProblem(int num1, int num2, String operator, int correctAnswer) {
         this.num1 = num1;
         this.num2 = num2;
