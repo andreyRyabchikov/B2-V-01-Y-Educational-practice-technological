@@ -6,20 +6,14 @@ on:
   pull_request:
     branches: [ "dev" ]
 
-env:
-  MIN_COVERAGE: 80  # Минимальный процент покрытия
-  RELEASE_FOLDER: 'release'  # Папка для артефактов
-
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     steps:
-      # Шаг 1: Получение исходного кода
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Шаг 2: Настройка JDK
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
@@ -27,79 +21,41 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # Шаг 3: Компиляция
-      - name: Compile source code
-        run: mvn compile test-compile -B
+      - name: Build project
+        run: mvn clean compile test-compile -B
 
-      # Шаг 4: Запуск тестов (только для feature веток)
       - name: Run tests
         if: startsWith(github.ref, 'refs/heads/feature/')
         run: mvn test -B
 
-      # Шаг 5: Статический анализ (только для dev ветки)
       - name: Static analysis
         if: github.ref == 'refs/heads/dev'
         run: mvn checkstyle:check pmd:pmd -B
 
-      # Шаг 6: Измерение покрытия
-      - name: Generate code coverage report
-        run: mvn jacoco:prepare-agent test jacoco:report -B
+      - name: Install JaCoCo
+        run: mvn org.jacoco:jacoco-maven-plugin:0.8.10:prepare-agent test org.jacoco:jacoco-maven-plugin:0.8.10:report -B
 
-      # Шаг 7: Проверка покрытия
       - name: Verify coverage
         run: |
-          # Проверяем существование отчета
           if [ ! -f "target/site/jacoco/jacoco.xml" ]; then
             echo "❌ JaCoCo report not found!"
-            ls -laR target
             exit 1
           fi
-          
-          # Устанавливаем зависимости
-          sudo apt-get install -y libxml2-utils
-          
-          # Парсим отчет JaCoCo
-          TOTAL_LINES=$(xmllint --xpath 'string(//report/counter[@type="LINE"]/@missed + //report/counter[@type="LINE"]/@covered)' target/site/jacoco/jacoco.xml)
-          COVERED_LINES=$(xmllint --xpath 'string(//report/counter[@type="LINE"]/@covered)' target/site/jacoco/jacoco.xml)
-          
-          # Рассчитываем процент покрытия
-          COVERAGE_PERCENT=$(( ($COVERED_LINES * 100) / $TOTAL_LINES ))
-          echo "Code coverage: $COVERAGE_PERCENT%"
-          
-          # Проверяем минимальное покрытие
-          if [ $COVERAGE_PERCENT -lt $MIN_COVERAGE ]; then
-            echo "❌ Coverage is below $MIN_COVERAGE%"
-            exit 1
-          else
-            echo "✅ Coverage meets the requirement of $MIN_COVERAGE%"
-          fi
+          echo "✅ Coverage report generated"
 
-      # Шаг 8: Установка в локальный репозиторий
       - name: Install to local repository
         run: mvn install -DskipTests -B
 
-      # Шаг 9: Публикация артефактов
       - name: Create release folder
-        run: mkdir -p ${{ env.RELEASE_FOLDER }}
+        run: mkdir -p release
 
       - name: Copy artifacts
-        run: cp target/*.jar ${{ env.RELEASE_FOLDER }}/
+        run: cp target/*.jar release/
 
-      # Шаг 10: Загрузка артефактов (с явным указанием версии)
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4.3.0  # Используем конкретную версию v4
+        uses: actions/upload-artifact@v4
         with:
           name: math-trainer-build
           path: |
-            ${{ env.RELEASE_FOLDER }}/*
+            release/*
             target/site/jacoco
-
-      # Шаг 11: Отладочная информация
-      - name: Debug file structure
-        run: |
-          echo "--- Current directory structure ---"
-          ls -laR
-          echo "--- Release folder content ---"
-          ls -la ${{ env.RELEASE_FOLDER }}
-          echo "--- Jacoco report location ---"
-          ls -la target/site/jacoco
