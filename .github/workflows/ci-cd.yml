@@ -45,13 +45,27 @@ jobs:
       - name: Generate code coverage report
         run: mvn jacoco:prepare-agent test jacoco:report -B
 
-      # Шаг 7: Проверка покрытия
+      # Шаг 7: Проверка покрытия с помощью скрипта
       - name: Verify coverage
-        uses: irongut/jacoco-report@v1.3
-        with:
-          paths: '**/site/jacoco/jacoco.xml'
-          min-coverage-overall: ${{ env.MIN_COVERAGE }}
-          fail-on-coverage-drop: true
+        run: |
+          # Устанавливаем зависимости
+          sudo apt-get install -y libxml2-utils
+          
+          # Парсим отчет JaCoCo
+          TOTAL_LINES=$(xmllint --xpath 'string(//report/counter[@type="LINE"]/@missed + //report/counter[@type="LINE"]/@covered)' target/site/jacoco/jacoco.xml)
+          COVERED_LINES=$(xmllint --xpath 'string(//report/counter[@type="LINE"]/@covered)' target/site/jacoco/jacoco.xml)
+          
+          # Рассчитываем процент покрытия
+          COVERAGE_PERCENT=$(( ($COVERED_LINES * 100) / $TOTAL_LINES ))
+          echo "Code coverage: $COVERAGE_PERCENT%"
+          
+          # Проверяем минимальное покрытие
+          if [ $COVERAGE_PERCENT -lt $MIN_COVERAGE ]; then
+            echo "❌ Coverage is below $MIN_COVERAGE%"
+            exit 1
+          else
+            echo "✅ Coverage meets the requirement of $MIN_COVERAGE%"
+          fi
 
       # Шаг 8: Установка в локальный репозиторий
       - name: Install to local repository
@@ -64,9 +78,9 @@ jobs:
       - name: Copy artifacts
         run: cp target/*.jar ${{ env.RELEASE_FOLDER }}/
 
-      # Шаг 10: Загрузка артефактов (с явным указанием версии)
+      # Шаг 10: Загрузка артефактов
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3.1.2  # Используем конкретную версию
+        uses: actions/upload-artifact@v3
         with:
           name: math-trainer-build
           path: |
