@@ -45,9 +45,16 @@ jobs:
       - name: Generate code coverage report
         run: mvn jacoco:prepare-agent test jacoco:report -B
 
-      # Шаг 7: Проверка покрытия с помощью скрипта
+      # Шаг 7: Проверка покрытия
       - name: Verify coverage
         run: |
+          # Проверяем существование отчета
+          if [ ! -f "target/site/jacoco/jacoco.xml" ]; then
+            echo "❌ JaCoCo report not found!"
+            ls -laR target
+            exit 1
+          fi
+          
           # Устанавливаем зависимости
           sudo apt-get install -y libxml2-utils
           
@@ -78,11 +85,21 @@ jobs:
       - name: Copy artifacts
         run: cp target/*.jar ${{ env.RELEASE_FOLDER }}/
 
-      # Шаг 10: Загрузка артефактов
+      # Шаг 10: Загрузка артефактов (с явным указанием версии)
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4.3.0  # Используем конкретную версию v4
         with:
           name: math-trainer-build
           path: |
             ${{ env.RELEASE_FOLDER }}/*
             target/site/jacoco
+
+      # Шаг 11: Отладочная информация
+      - name: Debug file structure
+        run: |
+          echo "--- Current directory structure ---"
+          ls -laR
+          echo "--- Release folder content ---"
+          ls -la ${{ env.RELEASE_FOLDER }}
+          echo "--- Jacoco report location ---"
+          ls -la target/site/jacoco
