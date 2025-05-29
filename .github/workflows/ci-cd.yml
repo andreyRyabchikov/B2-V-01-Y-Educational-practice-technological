@@ -21,27 +21,31 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Purge JaCoCo cache
-        run: rm -rf ~/.m2/repository/org/jacoco
+      - name: Purge Maven cache
+        run: |
+          rm -rf ~/.m2/repository/org/jacoco
+          mvn dependency:purge-local-repository -DactTransitively=false -DreResolve=false
 
       - name: Build and test
         run: |
+          # Запускаем тесты с генерацией данных покрытия
           mvn clean test -B
-          # Генерация отчета отдельно
-          mvn jacoco:report -B
+          
+          # Генерируем отчет отдельно
+          mvn org.jacoco:jacoco-maven-plugin:0.8.10:report -B
+
+      - name: Verify coverage
+        run: |
+          if [ ! -f "target/site/jacoco/jacoco.xml" ]; then
+            echo "❌ JaCoCo report not found! Searching..."
+            find . -name jacoco.xml
+            exit 1
+          fi
+          echo "✅ Coverage report generated at: $(find . -name jacoco.xml)"
 
       - name: Static analysis
         if: github.ref == 'refs/heads/dev'
         run: mvn checkstyle:check pmd:pmd -B
-
-      - name: Verify coverage
-        run: |
-          if [ ! -f "core/target/site/jacoco/jacoco.xml" ]; then
-            echo "❌ JaCoCo report not found!"
-            find . -name jacoco.xml
-            exit 1
-          fi
-          echo "✅ Coverage report generated"
 
       - name: Install to local repository
         run: mvn install -DskipTests -B
@@ -51,7 +55,8 @@ jobs:
 
       - name: Copy artifacts
         run: |
-          find . -name '*.jar' -exec cp --parents {} release \;
+          # Для многомодульных проектов
+          find . -path '*/target/*.jar' -exec cp --parents {} release \;
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
