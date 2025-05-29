@@ -18,7 +18,7 @@ jobs:
       # Шаг 1: Получение исходного кода
       - name: Checkout code
         uses: actions/checkout@v3
-      
+
       # Шаг 2: Настройка JDK
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -30,45 +30,43 @@ jobs:
       # Шаг 3: Компиляция
       - name: Compile source code
         run: mvn compile test-compile -B
-      
+
       # Шаг 4: Запуск тестов (только для feature веток)
       - name: Run tests
         if: startsWith(github.ref, 'refs/heads/feature/')
         run: mvn test -B
-      
+
       # Шаг 5: Статический анализ (только для dev ветки)
       - name: Static analysis
         if: github.ref == 'refs/heads/dev'
         run: mvn checkstyle:check pmd:pmd -B
-      
-      # Шаг 6: Измерение покрытия и проверка
-      - name: Code coverage
-        run: |
-          mvn jacoco:prepare-agent test jacoco:report -B
-          
-          # Установка Python для анализа
-          sudo apt-get install python3-pip
-          pip install jacoco-coverage-validator
-          
-          # Проверка покрытия
-          jacoco-validator \
-            --file target/site/jacoco/jacoco.xml \
-            --min-line ${{ env.MIN_COVERAGE }} \
-            --fail
 
-      # Шаг 7: Установка в локальный репозиторий
+      # Шаг 6: Измерение покрытия
+      - name: Generate code coverage report
+        run: mvn jacoco:prepare-agent test jacoco:report -B
+
+      # Шаг 7: Проверка покрытия
+      - name: Verify coverage
+        uses: irongut/jacoco-report@v1.3
+        with:
+          paths: '**/site/jacoco/jacoco.xml'
+          min-coverage-overall: ${{ env.MIN_COVERAGE }}
+          fail-on-coverage-drop: true
+
+      # Шаг 8: Установка в локальный репозиторий
       - name: Install to local repository
         run: mvn install -DskipTests -B
-      
-      # Шаг 8: Публикация артефактов
-      - name: Publish artifacts
-        run: |
-          mkdir -p ${{ env.RELEASE_FOLDER }}
-          cp target/*.jar ${{ env.RELEASE_FOLDER }}/
 
-      # Шаг 9: Загрузка артефактов
+      # Шаг 9: Публикация артефактов
+      - name: Create release folder
+        run: mkdir -p ${{ env.RELEASE_FOLDER }}
+
+      - name: Copy artifacts
+        run: cp target/*.jar ${{ env.RELEASE_FOLDER }}/
+
+      # Шаг 10: Загрузка артефактов (с явным указанием версии)
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.2  # Используем конкретную версию
         with:
           name: math-trainer-build
           path: |
