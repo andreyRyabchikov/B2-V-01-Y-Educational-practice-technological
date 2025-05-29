@@ -9,20 +9,22 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        java: [17]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up JDK ${{ matrix.java }}
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
-          java-version: ${{ matrix.java }}
+          java-version: '17'
           distribution: 'temurin'
           cache: 'maven'
+
+      - name: Clear Maven cache
+        run: |
+          mvn dependency:purge-local-repository
+          rm -rf ~/.m2/repository/org/jacoco
 
       - name: Build project
         run: mvn clean compile test-compile -B
@@ -36,12 +38,16 @@ jobs:
         run: mvn checkstyle:check pmd:pmd -B
 
       - name: Generate code coverage
-        run: mvn jacoco:report -B
+        run: |
+          # Явно вызываем плагин с указанием полного пути
+          mvn org.jacoco:jacoco-maven-plugin:0.8.10:prepare-agent test
+          mvn org.jacoco:jacoco-maven-plugin:0.8.10:report -B
 
       - name: Verify coverage
         run: |
           if [ ! -f "target/site/jacoco/jacoco.xml" ]; then
             echo "❌ JaCoCo report not found!"
+            ls -laR target
             exit 1
           fi
           echo "✅ Coverage report generated"
@@ -53,12 +59,13 @@ jobs:
         run: mkdir -p release
 
       - name: Copy artifacts
-        run: find . -name '*.jar' -exec cp {} release/ \;
+        run: |
+          find . -name '*.jar' -exec cp --parents {} release \;
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: math-trainer-build
           path: |
-            release/*
+            release/
             target/site/jacoco
