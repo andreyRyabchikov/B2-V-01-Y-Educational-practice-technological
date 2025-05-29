@@ -21,33 +21,24 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Clear Maven cache
+      - name: Purge JaCoCo cache
+        run: rm -rf ~/.m2/repository/org/jacoco
+
+      - name: Build and test
         run: |
-          mvn dependency:purge-local-repository
-          rm -rf ~/.m2/repository/org/jacoco
-
-      - name: Build project
-        run: mvn clean compile test-compile -B
-
-      - name: Run tests
-        if: startsWith(github.ref, 'refs/heads/feature/')
-        run: mvn test -B
+          mvn clean test -B
+          # Генерация отчета отдельно
+          mvn jacoco:report -B
 
       - name: Static analysis
         if: github.ref == 'refs/heads/dev'
         run: mvn checkstyle:check pmd:pmd -B
 
-      - name: Generate code coverage
-        run: |
-          # Явно вызываем плагин с указанием полного пути
-          mvn org.jacoco:jacoco-maven-plugin:0.8.10:prepare-agent test
-          mvn org.jacoco:jacoco-maven-plugin:0.8.10:report -B
-
       - name: Verify coverage
         run: |
-          if [ ! -f "target/site/jacoco/jacoco.xml" ]; then
+          if [ ! -f "core/target/site/jacoco/jacoco.xml" ]; then
             echo "❌ JaCoCo report not found!"
-            ls -laR target
+            find . -name jacoco.xml
             exit 1
           fi
           echo "✅ Coverage report generated"
@@ -68,4 +59,4 @@ jobs:
           name: math-trainer-build
           path: |
             release/
-            target/site/jacoco
+            **/target/site/jacoco
