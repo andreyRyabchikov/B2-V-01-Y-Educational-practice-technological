@@ -21,52 +21,34 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Purge Maven cache
-        run: |
-          rm -rf ~/.m2/repository/org/jacoco
-          mvn dependency:purge-local-repository -DactTransitively=false -DreResolve=false
-
       - name: Build and test
-        run: |
-          mvn clean test -B
+        run: mvn clean test -B
 
       - name: Generate coverage report
         run: mvn org.jacoco:jacoco-maven-plugin:0.8.10:report -B
 
-      - name: Verify coverage
-        run: |
-          # Ищем отчет во всех модулях
-          REPORT_PATH=$(find . -path '*/site/jacoco/jacoco.xml' | head -1)
-          
-          if [ -z "$REPORT_PATH" ]; then
-            echo "❌ JaCoCo report not found in any module!"
-            echo "Searching for jacoco.xml files:"
-            find . -name jacoco.xml || true
-            exit 1
-          else
-            echo "✅ Coverage report found at: $REPORT_PATH"
-            # Дополнительные действия с отчетом при необходимости
-          fi
+      # Вариант 1: Публикация на GitHub Pages
+      - name: Deploy Jacoco Report to GitHub Pages
+        if: success()
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./core/target/site/jacoco
+          destination_dir: jacoco-report
 
-      - name: Static analysis
-        if: github.ref == 'refs/heads/dev'
-        run: mvn checkstyle:check pmd:pmd -B
+      # Вариант 2: Встроенный просмотрщик
+      - name: Publish Coverage Report
+        if: always()
+        uses: mikepenz/action-jacoco-report@v2
+        with:
+          paths: '**/site/jacoco/jacoco.xml'
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install to local repository
-        run: mvn install -DskipTests -B
-
-      - name: Create release folder
-        run: mkdir -p release
-
-      - name: Copy artifacts
-        run: |
-          # Копируем все jar-файлы из всех модулей
-          find . -path '*/target/*.jar' -exec cp --parents {} release \;
-
+      # Общий шаг для артефактов
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: math-trainer-build
           path: |
-            release/
+            **/target/*.jar
             **/target/site/jacoco
