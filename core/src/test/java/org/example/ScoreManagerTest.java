@@ -40,6 +40,9 @@ class ScoreManagerTest {
     @DisplayName("Добавление правильных ответов увеличивает счетчик")
     void addCorrect_ShouldIncrementCounters(int times) {
         for (int i = 0; i < times; i++) {
+
+            scoreManager.maxStreak =3;
+            scoreManager.streak = 5;
             scoreManager.addCorrect();
         }
         assertEquals(times, scoreManager.getCorrectAnswers());
@@ -50,6 +53,8 @@ class ScoreManagerTest {
     @DisplayName("Добавление правильных ответов увеличивает счетчик")
     void addCorrect_ShouldIsncrementCounters(int times) {
         for (int i = 0; i < times; i++) {
+            scoreManager.maxStreak =5;
+            scoreManager.streak = 3;
             scoreManager.addCorrect();
         }
         assertEquals(times, scoreManager.getCorrectAnswers());
