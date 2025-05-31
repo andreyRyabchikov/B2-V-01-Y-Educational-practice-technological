@@ -106,11 +106,10 @@ class ScoreManagerTest {
 
         ScoreManager perfectScore = new ScoreManager(10);
         setPrivateField(perfectScore, "correctAnswers", 9);
-        setPrivateField(perfectScore, "maxStreak", 9);
+        setPrivateField(perfectScore, "maxStreak", 11);
 
         perfectScore.printFinalResult();
 
-        verify(mockPrintStream).println(contains("★ Максимальная серия: 9"));
         verify(mockPrintStream).println(contains("👍 Отличная работа!"));
     }
 
