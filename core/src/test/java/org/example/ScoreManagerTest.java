@@ -45,6 +45,16 @@ class ScoreManagerTest {
         assertEquals(times, scoreManager.getCorrectAnswers());
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {5, 1, 3})
+    @DisplayName("Добавление правильных ответов увеличивает счетчик")
+    void addCorrect_ShouldIsncrementCounters(int times) {
+        for (int i = 0; i < times; i++) {
+            scoreManager.addCorrect();
+        }
+        assertEquals(times, scoreManager.getCorrectAnswers());
+    }
+
     @Test
     @DisplayName("Серия правильных ответов учитывается")
     void addCorrect_ShouldTrackStreak() {
