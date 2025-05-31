@@ -52,9 +52,10 @@ class ScoreManagerTest {
     @ValueSource(ints = {5, 1, 3})
     @DisplayName("Добавление правильных ответов увеличивает счетчик")
     void addCorrect_ShouldIsncrementCounters(int times) {
+
+        scoreManager.maxStreak =5;
+        scoreManager.streak = 3;
         for (int i = 0; i < times; i++) {
-            scoreManager.maxStreak =5;
-            scoreManager.streak = 3;
             scoreManager.addCorrect();
         }
         assertEquals(times, scoreManager.getCorrectAnswers());
