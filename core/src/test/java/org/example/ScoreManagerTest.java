@@ -106,7 +106,7 @@ class ScoreManagerTest {
 
         ScoreManager perfectScore = new ScoreManager(10);
         setPrivateField(perfectScore, "correctAnswers", 9);
-        setPrivateField(perfectScore, "maxStreak", 11);
+        setPrivateField(perfectScore, "maxStreak", -1);
 
         perfectScore.printFinalResult();
 
