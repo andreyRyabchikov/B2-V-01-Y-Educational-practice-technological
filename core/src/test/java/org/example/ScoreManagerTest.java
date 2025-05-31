@@ -97,6 +97,23 @@ class ScoreManagerTest {
         verify(mockPrintStream).println(contains("🎉 Идеальный результат!"));
     }
 
+    @Test
+    @DisplayName("Печать результатов при идеальном результате")
+    void printFinalResults_ShouldShowPerfectMessage() {
+        // Используем Mockito только для проверки вывода
+        PrintStream mockPrintStream = mock(PrintStream.class);
+        System.setOut(mockPrintStream);
+
+        ScoreManager perfectScore = new ScoreManager(10);
+        setPrivateField(perfectScore, "correctAnswers", 9);
+        setPrivateField(perfectScore, "maxStreak", 9);
+
+        perfectScore.printFinalResult();
+
+        verify(mockPrintStream).println(contains("★ Максимальная серия: 9"));
+        verify(mockPrintStream).println(contains("👍 Отличная работа!"));
+    }
+
     // Вспомогательные методы
     private int getPrivateField(Object obj, String fieldName) {
         try {
