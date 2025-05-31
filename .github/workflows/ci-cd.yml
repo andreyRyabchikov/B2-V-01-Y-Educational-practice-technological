@@ -1,0 +1,119 @@
+name: Math Trainer CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "dev", "feature/**" ]
+  pull_request:
+    branches: [ "dev" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    outputs:
+      report_url: ${{ steps.report_url.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Purge Maven cache
+        run: |
+          rm -rf ~/.m2/repository/org/jacoco
+          mvn dependency:purge-local-repository -DactTransitively=false -DreResolve=false
+
+      - name: Build and test
+        run: |
+          mvn clean test -B
+
+      - name: Generate coverage report
+        run: mvn org.jacoco:jacoco-maven-plugin:0.8.10:report -B
+
+      - name: Verify coverage
+        id: coverage_report
+        run: |
+          # Ищем отчет во всех модулях
+          REPORT_PATH=$(find . -path '*/site/jacoco/jacoco.xml' | head -1)
+          
+          if [ -z "$REPORT_PATH" ]; then
+            echo "❌ JaCoCo report not found in any module!"
+            echo "Searching for jacoco.xml files:"
+            find . -name jacoco.xml || true
+            exit 1
+          else
+            # Извлекаем путь к HTML отчету
+            REPORT_DIR=$(dirname "$REPORT_PATH")
+            HTML_PATH="${REPORT_DIR}/index.html"
+          
+            # Создаем относительный путь для артефакта
+            REL_PATH="${HTML_PATH#./}"
+          
+            echo "✅ Coverage report found at: $REPORT_PATH"
+            echo "HTML report: $HTML_PATH"
+          
+            # Формируем прямую ссылку на артефакт
+            echo "report_path=$REL_PATH" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Static analysis
+        if: github.ref == 'refs/heads/dev'
+        run: mvn checkstyle:check pmd:pmd -B
+
+      - name: Install to local repository
+        run: mvn install -DskipTests -B
+
+      - name: Create release folder
+        run: mkdir -p release
+
+      - name: Copy artifacts
+        run: |
+          # Копируем все jar-файлы из всех модулей
+          find . -path '*/target/*.jar' -exec cp --parents {} release \;
+
+      - name: Upload artifacts
+        id: upload_artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: math-trainer-build
+          path: |
+            release/
+            **/target/site/jacoco
+
+      - name: Generate report URL
+        id: report_url
+        run: |
+          # Формируем прямую ссылку на отчет
+          REPORT_PATH=${{ steps.coverage_report.outputs.report_path }}
+          if [ -n "$REPORT_PATH" ]; then
+            # Создаем user-friendly ссылку
+            HTML_REPORT_PATH="${REPORT_PATH/jacoco.xml/index.html}"
+            FULL_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "url=$FULL_URL" >> $GITHUB_OUTPUT
+            echo "📊 JaCoCo Report Download: $FULL_URL"
+            echo "👉 After downloading artifacts, open: $HTML_REPORT_PATH"
+          fi
+
+      - name: Display Report Link
+        run: |
+          echo "======================================================"
+          echo "📊 CODE COVERAGE REPORT"
+          echo "======================================================"
+          echo "The JaCoCo coverage report is available in the workflow artifacts."
+          echo ""
+          echo "To view the report:"
+          echo "1. Go to this workflow run:"
+          echo "   https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "2. Download the 'math-trainer-build' artifact"
+          echo "3. Extract the zip file"
+          echo "4. Open the HTML report at:"
+          echo "   ${{ steps.coverage_report.outputs.report_path }}"
+          echo ""
+          echo "For quick access, look for this path in the extracted files:"
+          echo "   ${{ steps.coverage_report.outputs.report_path }}"
+          echo "======================================================"

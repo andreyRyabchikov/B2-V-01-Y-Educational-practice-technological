@@ -7,8 +7,8 @@ public class ScoreManager {
     private static final Logger logger = LogManager.getLogger(ScoreManager.class);
 
     private int correctAnswers;
-    private int streak;
-    private int maxStreak;
+    int streak;
+     int maxStreak;
     private final int totalQuestions;
 
     public ScoreManager(int totalQuestions) {
