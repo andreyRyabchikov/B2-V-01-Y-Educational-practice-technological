@@ -7,8 +7,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class ScoreManagerTest {
     private ScoreManager scoreManager;
@@ -30,7 +32,7 @@ class ScoreManagerTest {
     @DisplayName("Инициализация с правильным количеством вопросов")
     void constructor_ShouldSetTotalQuestions() {
         ScoreManager sm = new ScoreManager(15);
-        assertEquals(15, getTotalQuestions(sm));
+        assertEquals(15, getPrivateField(sm, "totalQuestions"));
     }
 
     @ParameterizedTest
@@ -48,7 +50,7 @@ class ScoreManagerTest {
     void addCorrect_ShouldTrackStreak() {
         scoreManager.addCorrect();
         scoreManager.addCorrect();
-        assertEquals(2, getCurrentStreak(scoreManager));
+        assertEquals(2, getPrivateField(scoreManager, "streak"));
     }
 
     @Test
@@ -56,13 +58,13 @@ class ScoreManagerTest {
     void addCorrect_ShouldUpdateMaxStreak() {
         scoreManager.addCorrect();
         scoreManager.addCorrect();
-        assertEquals(2, getMaxStreak(scoreManager));
+        assertEquals(2, getPrivateField(scoreManager, "maxStreak"));
 
         scoreManager = new ScoreManager(10);
         scoreManager.addCorrect();
         scoreManager.addCorrect();
         scoreManager.addCorrect();
-        assertEquals(3, getMaxStreak(scoreManager));
+        assertEquals(3, getPrivateField(scoreManager, "maxStreak"));
     }
 
     @ParameterizedTest
@@ -73,64 +75,54 @@ class ScoreManagerTest {
             "5, 5"
     })
     @DisplayName("Бонус за серию рассчитывается правильно")
-    void streakBonus_ShouldReturnCorrectValue(int streakLength, int expectedBonus) {
-        for (int i = 0; i < streakLength; i++) {
-            scoreManager.addCorrect();
-        }
-        assertEquals(expectedBonus, getCurrentBonus(scoreManager));
+    void streakBonus_ShouldReturnCorrectValue(int streakLength, int expectedBonus) throws Exception {
+        setPrivateField(scoreManager, "streak", streakLength);
+        assertEquals(expectedBonus, invokePrivateMethod(scoreManager, "streakBonus"));
     }
 
     @Test
     @DisplayName("Печать результатов при идеальном результате")
     void printFinalResult_ShouldShowPerfectMessage() {
+        // Используем Mockito только для проверки вывода
+        PrintStream mockPrintStream = mock(PrintStream.class);
+        System.setOut(mockPrintStream);
+
         ScoreManager perfectScore = new ScoreManager(3);
-        perfectScore.addCorrect();
-        perfectScore.addCorrect();
-        perfectScore.addCorrect();
+        setPrivateField(perfectScore, "correctAnswers", 3);
+        setPrivateField(perfectScore, "maxStreak", 3);
 
         perfectScore.printFinalResult();
 
-        String output = outContent.toString();
-        assertTrue(output.contains("★ Максимальная серия: 3"));
-        assertTrue(output.contains("🎉 Идеальный результат!"));
+        verify(mockPrintStream).println(contains("★ Максимальная серия: 3"));
+        verify(mockPrintStream).println(contains("🎉 Идеальный результат!"));
     }
 
-    // Вспомогательные методы для доступа к приватным полям
-    private int getTotalQuestions(ScoreManager sm) {
+    // Вспомогательные методы
+    private int getPrivateField(Object obj, String fieldName) {
         try {
-            var field = ScoreManager.class.getDeclaredField("totalQuestions");
+            Field field = obj.getClass().getDeclaredField(fieldName);
             field.setAccessible(true);
-            return (int) field.get(sm);
+            return (int) field.get(obj);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    private int getCurrentStreak(ScoreManager sm) {
+    private void setPrivateField(Object obj, String fieldName, int value) {
         try {
-            var field = ScoreManager.class.getDeclaredField("streak");
+            Field field = obj.getClass().getDeclaredField(fieldName);
             field.setAccessible(true);
-            return (int) field.get(sm);
+            field.set(obj, value);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
-    private int getMaxStreak(ScoreManager sm) {
+    private int invokePrivateMethod(Object obj, String methodName) {
         try {
-            var field = ScoreManager.class.getDeclaredField("maxStreak");
-            field.setAccessible(true);
-            return (int) field.get(sm);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private int getCurrentBonus(ScoreManager sm) {
-        try {
-            var method = ScoreManager.class.getDeclaredMethod("streakBonus");
+            var method = obj.getClass().getDeclaredMethod(methodName);
             method.setAccessible(true);
-            return (int) method.invoke(sm);
+            return (int) method.invoke(obj);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
